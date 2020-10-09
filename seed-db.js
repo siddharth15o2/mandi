@@ -9,29 +9,35 @@ const connection = mysql.createConnection({
     multipleStatements: true
 });
 
+const sqlQueries = [
+    'SET FOREIGN_KEY_CHECKS=0',
+    'truncate states',
+    'truncate districts',
+    'SET FOREIGN_KEY_CHECKS=1'
+];
+
 connection.connect();
 
 let state_values = [];
 
-for (let i = 0; i < data.states.length; i++) {
-    const {id, type, name, capital, code } = data.states[i];
+for (const state of data.states) {
+    const {id, type, name, capital, code } = state;
     state_values.push(`(${id}, '${type}', '${name}',  '${capital}', '${code}', 1)`);
 }
 
-const state_query = 'truncate states; insert into states (id, type, name,  capital, code, country_id) values ' + state_values.join(',');
+sqlQueries.push('insert into states (id, type, name,  capital, code, country_id) values ' + state_values.join(','));
 
 let district_values = [];
 
-for (let i = 0; i < data.states.length; i++) {
-    const state_id = data.states[i].id ;
-    for (let j = 0; j < data.states[i].districts.length; j++) {
-        const {name} = data.states[i].districts[j];
-        district_values.push(`('${name}', ${state_id})`);
-    }   
+for (const state of data.states) {
+    for (const district of state.districts) {
+        const {name} = district;
+        district_values.push(`('${name}', ${state.id})`);
+    }
 }
 
-const district_query = 'truncate districts; insert into districts (name, state_id) values' + district_values.join(',');
-connection.query('SET FOREIGN_KEY_CHECKS=0;' + state_query + ';' + district_query + '; SET FOREIGN_KEY_CHECKS=1;' , function (error, results) {
+sqlQueries.push('insert into districts (name, state_id) values' + district_values.join(','));
+connection.query(sqlQueries.join('; '), function (error, results) {
     if (error) throw error;
     console.log(results)
 });
