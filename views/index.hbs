@@ -1,12 +1,21 @@
-
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>{{title}}</title>
-    <link rel='stylesheet' href='/stylesheets/style.css' />
-  </head>
-  <body>
-    <h1>{{title}}</h1>
-<p>Welcome to {{title}}</p>
-  </body>
+
+<head>
+  <title>{{title}}</title>
+  <link rel='stylesheet' href='/stylesheets/style.css' />
+</head>
+
+<body>
+  <h1>{{title}}</h1>
+  <p>Welcome to {{title}}</p>
+  <div id="root">
+  </div>
+  <button type="button" id="prev" hidden="true">Prev</button>
+  <select name="page" id="selPage">
+  </select>
+  <button type="button" id="nxt">Next</button>
+</body>
+<script src="/javascripts/script.js"></script>
+
 </html>
