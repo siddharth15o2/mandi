@@ -1,5 +1,125 @@
 // Obj: List data from API with pagination support
 
+// Pagination
+function Paginator(loader, options, callback) {
+  let state = {
+      currentPage: !("currentPage" in options) ? 1 : options.currentPage,
+      totalPages: null,
+      pageSize: options.pageSize,
+      data: [],
+    },
+    controls = options.controls;
+
+  /**
+   * On state update
+   *
+   * 1. Update controls state
+   * 2. Update the view with current page records
+   */
+  function setState(changes) {
+    state = Object.assign(state, changes);
+
+    if (state.totalPages > 1) {
+      if (state.currentPage > 1) {
+        document.getElementById(controls.prevPage).removeAttribute("hidden");
+      }
+
+      if (state.currentPage === 1) {
+        document.getElementById(controls.prevPage).setAttribute("hidden", true);
+      }
+
+      if (state.currentPage === state.totalPages) {
+        document.getElementById(controls.nextPage).setAttribute("hidden", true);
+      } else {
+        document.getElementById(controls.nextPage).removeAttribute("hidden");
+      }
+
+      document.getElementById(controls.pageSelector).value = state.currentPage;
+    }
+
+    options.onPageChange(state);
+  }
+
+  // nth page
+  function goToPage(n, callback) {
+    if (n > state.totalPages || n <= 0) {
+      return;
+    }
+
+    state.currentPage = parseInt(n, 10);
+
+    return loader(n, state.pageSize).then((data) => {
+      setState({ data: data.records });
+
+      typeof callback === "function" && callback(undefined, state);
+    });
+  }
+
+  // next page
+  function nextPage(callback) {
+    goToPage(state.currentPage + 1, callback);
+  }
+
+  // prev page
+  function prevPage(callback) {
+    goToPage(state.currentPage - 1, callback);
+  }
+
+  controls.nextPage &&
+    document
+      .getElementById(controls.nextPage)
+      .addEventListener("click", nextPage);
+
+  controls.prevPage &&
+    document
+      .getElementById(controls.prevPage)
+      .addEventListener("click", prevPage);
+
+  controls.pageSelector &&
+    document
+      .getElementById(controls.pageSelector)
+      .addEventListener("change", (e) => {
+        goToPage(e.target.value);
+      });
+
+  // Initialze paginator
+  loader(state.currentPage, state.pageSize).then((data) => {
+    setState({
+      data: data.records,
+      totalPages: Math.ceil(data.total / state.pageSize),
+    });
+
+    if (controls.pageSelector) {
+      const sp = document.getElementById(controls.pageSelector);
+
+      // Prepare the nth page selector
+      for (let i = 0; i < state.totalPages; i++) {
+        let j = i;
+        let element = document.createElement("option");
+        element.textContent = j + 1;
+        element.value = j + 1;
+        sp.appendChild(element);
+      }
+    }
+
+    typeof callback === "function" && callback(undefined, state);
+  });
+
+  return {
+    nextPage,
+    prevPage,
+    goToPage,
+  };
+}
+
+// Application Logic
+function dataLoader(pageNumber, pageSize) {
+  let offset = (pageNumber - 1) * pageSize,
+    limit = pageSize;
+
+  return fetchData(offset, limit);
+}
+
 // Fetch data from API
 function fetchData(offset, limit) {
   const URL =
@@ -33,103 +153,15 @@ function display(state) {
     .join("<br/>");
 }
 
-// Pagination
-function Paginator(loader, options, callback) {
-  let state = {
-    currentPage: !("currentPage" in options) ? 1 : options.currentPage,
-    totalPages: null,
-    pageSize: options.pageSize,
-    data: [],
-  };
-
-  // next page
-  function nextPage(callback) {
-    return loader(++state.currentPage, state.pageSize).then((data) => {
-      state.data = data.records;
-
-      callback(undefined, state);
-    });
-  }
-
-  // prev page
-  function prevPage(callback) {
-    return loader(--state.currentPage, state.pageSize).then((data) => {
-      state.data = data.records;
-      callback(undefined, state);
-    });
-  }
-
-  // nth page
-  function nthPage(n, callback) {
-    state.currentPage = n;
-    return loader(n, state.pageSize).then((data) => {
-      state.data = data.records;
-      callback(undefined, state);
-    });
-  }
-
-  // Initialze paginator
-  loader(state.currentPage, state.pageSize).then((data) => {
-    state.data = data.records;
-    state.totalPages = Math.ceil(data.total / state.pageSize);
-
-    callback(undefined, state);
-  });
-
-  return {
-    nextPage,
-    prevPage,
-    nthPage,
-  };
-}
-
-// Application Logic
-function dataLoader(pageNumber, pageSize) {
-  let offset = (pageNumber - 1) * pageSize,
-    limit = pageSize;
-
-  return fetchData(offset, limit);
-}
-
-const paginator = Paginator(dataLoader, { pageSize: 100 }, (err, state) => {
-  console.log("Initial State:", state);
-  const sp = document.getElementById("selPage");
-
-  // Prepare the nth page selector
-  for (let i = 0; i < state.totalPages; i++) {
-    let j = i;
-    let element = document.createElement("option");
-    element.textContent = j + 1;
-    element.value = j + 1;
-    sp.appendChild(element);
-  }
-
-  display(state);
-});
-
-document.getElementById("selPage").addEventListener("change", (e) => {
-  paginator.nthPage(e.target.value, (err, state) => {
-    if (state.currentPage > 1) {
-      document.getElementById("prev").removeAttribute("hidden");
-    }
+const paginator = Paginator(dataLoader, {
+  pageSize: 100,
+  controls: {
+    nextPage: "nxt",
+    prevPage: "prev",
+    pageSelector: "selPage",
+    queryParam: "page",
+  },
+  onPageChange: (state) => {
     display(state);
-  });
-});
-
-document.getElementById("nxt").addEventListener("click", (e) => {
-  paginator.nextPage((err, state) => {
-    if (state.currentPage > 1) {
-      document.getElementById("prev").removeAttribute("hidden");
-    }
-    display(state);
-  });
-});
-
-document.getElementById("prev").addEventListener("click", (e) => {
-  paginator.prevPage((err, state) => {
-    if (state.currentPage <= 1) {
-      document.getElementById("prev").setAttribute("hidden", true);
-    }
-    display(state);
-  });
+  },
 });
